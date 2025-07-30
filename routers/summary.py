@@ -1,0 +1,71 @@
+# api/summary_router.py
+from fastapi import APIRouter, HTTPException
+from typing import Dict, List
+from core.generator import EmergencySummaryGenerator
+from core.models import JavaData, SummaryRequest, SummaryResponse, GuidanceType, QAPair, QA
+from config.logging_conf import logger
+
+router = APIRouter(prefix="/summary", tags=["接警总结生成"])
+
+@router.post("/generate", response_model=SummaryResponse)
+async def generate_summary(request: JavaData):
+    """
+    生成接警指引总结
+    - summaryType=1: 合并所有报警人信息生成总结
+    - summaryType=2: 仅基于主报警人生成总结（但依然可传多人数据）
+    """
+    try:
+        if not request.allAnswers:
+            raise HTTPException(status_code=400, detail="报警记录不能为空")
+
+        # 转换请求
+        summary_request = convert_java_data(request)
+        generator = EmergencySummaryGenerator()
+
+        # 生成总结
+        response = await generator.generate_summary(summary_request)
+        return response
+
+    except Exception as e:
+        logger.error(f"生成总结失败: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
+
+
+def convert_java_data(java_data: JavaData) -> SummaryRequest:
+    """将 Java 数据转换为 SummaryRequest"""
+    guidance_type = determine_guidance_type(java_data.guideType)
+
+    # 解析所有报警人数据
+    qa_list: List[QA] = []
+    for caller_id, answer_map in java_data.allAnswers.items():
+        qa_pairs = [QAPair(question=q, answer=a) for q, a in answer_map.items()]
+        qa_list.append(QA(caller_id=caller_id, qa_pairs=qa_pairs))
+
+    # 判断是生成主报警人总结，还是合并总结
+    is_primary = False
+    if java_data.summaryType == 2:
+        # 仅主报警人：但 Java 应确保 allAnswers 中第一个或标记者是主报警人
+        # 这里我们假设 Java 已按顺序传入，或 caller_id 可识别，但为简化，我们仍传全部，由 prompt 控制 focus
+        is_primary = True
+    elif java_data.summaryType == 1:
+        # 合并所有报警人
+        is_primary = False
+    else:
+        raise ValueError("summaryType 必须为 1（合并）或 2（主报警人）")
+
+    return SummaryRequest(
+        case_id=java_data.incidentId,
+        guidance_type=guidance_type,
+        qa_list=qa_list,
+        case_context=None,  # 可选：Java 可额外传 context
+        is_primary=is_primary
+    )
+
+
+def determine_guidance_type(guide_type: int) -> GuidanceType:
+    mapping = {
+        1: GuidanceType.TRAFFIC_ACCIDENT,
+        2: GuidanceType.ELEVATOR_ENTRAPMENT,
+        3: GuidanceType.SUICIDE_ATTEMPT
+    }
+    return mapping.get(guide_type, GuidanceType.TRAFFIC_ACCIDENT)
