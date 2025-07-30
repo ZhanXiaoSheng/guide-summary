@@ -32,9 +32,9 @@ guide_summary/
 APP_NAME=Guide Summary API
 API_PREFIX=/api/v1
 PORT=8000
-MODEL_API_KEY=sk-
-MODEL_ENDPOINT=https://dashscope.aliyuncs.com/api/v1/...
-DEBUG=false
+API_KEY=sk-***
+BASE_URL=https://dashscope.aliyuncs.com/api/v1/...
+LLM_MODEL=gpt-3.5-turbo
 ```
 
 ## 🚀 部署方式（Windows）
