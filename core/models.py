@@ -7,9 +7,9 @@ from pydantic import BaseModel
 
 class GuidanceType(str, Enum):
     """指引类型"""
-    TRAFFIC_ACCIDENT = "traffic_accident"
-    ELEVATOR_ENTRAPMENT = "elevator_entrapment"
-    SUICIDE_ATTEMPT = "suicide_attempt"
+    TRAFFIC_ACCIDENT = "交通事故"
+    ELEVATOR_ENTRAPMENT = "电梯困人"
+    SUICIDE_ATTEMPT = "跳楼轻生"
 
 class QAPair(BaseModel):
     """问答"""
