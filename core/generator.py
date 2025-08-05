@@ -34,7 +34,8 @@ class EmergencySummaryGenerator:
             )
             
             # 3. 调用大模型
-            logger.info(f"生成总结,案件ID= {request_data.case_id}")
+            logger.info(f"生成总结,案件ID= {request_data.case_id},问答记录={user_message}")
+            logger.info(f"系统提示词: {system_prompt}")
             response_text = await self._call_llm(system_prompt, user_message)
             
             # 4. 构建响应
@@ -50,7 +51,8 @@ class EmergencySummaryGenerator:
             raise
     
     def _build_system_prompt(self, guidance_type: GuidanceType, is_primary: bool) -> str:
-        role_desc = "主报警人" if is_primary else "综合多个报警人信息"
+        role_desc = "主报警人" if is_primary else "其他报警人"
+        other_role_desc = "分别对每个报警人进行" if not is_primary else ""
         base_instruction = f"你是一名专业的消防救援指挥中心接警员，需要根据{role_desc}提供的信息生成{guidance_type.value}接警指引总结。"
 
         extraction_rules = {
@@ -58,7 +60,7 @@ class EmergencySummaryGenerator:
                 "请准确提取：事发地点、车辆类型及数量、伤亡情况、交通状况、是否起火或泄漏等危险因素。"
             ),
             GuidanceType.ELEVATOR_ENTRAPMENT: (
-                "请准确提取：具体位置（楼栋/单元）、电梯编号或状态、被困人数、人员类型（老人/儿童）、被困楼层、已困时间、人员健康状况。"
+                "请准确提取：具体位置（楼栋/单元）、电梯状态、被困人数、人员类型（老人/儿童）、被困楼层、人员健康状况。"
             ),
             GuidanceType.SUICIDE_ATTEMPT: (
                 "请准确提取：轻生者所在位置（建筑/楼层/阳台）、周边环境（护栏/高度）、轻生者人数、性别、年龄估计、情绪状态、是否有危险动作、可能动机。"
@@ -66,7 +68,7 @@ class EmergencySummaryGenerator:
             )
         }
 
-        return base_instruction + extraction_rules.get(guidance_type, "请提取关键警情信息，结构化总结。只需要根据问答内容总结，请勿提供额外的处置建议。")
+        return base_instruction + extraction_rules.get(guidance_type) + f"请提取关键警情信息，{other_role_desc}结构化总结。"
     
 
     def _build_user_message(self, qa_list: List[QA], case_context: Optional[str] = None) -> str:
