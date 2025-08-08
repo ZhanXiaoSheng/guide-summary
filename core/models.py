@@ -10,6 +10,7 @@ class GuidanceType(str, Enum):
     TRAFFIC_ACCIDENT = "交通事故"
     ELEVATOR_ENTRAPMENT = "电梯困人"
     SUICIDE_ATTEMPT = "跳楼轻生"
+    SHOPPING_FIRE = "店铺着火"
 
 class QAPair(BaseModel):
     """问答"""

@@ -52,8 +52,8 @@ class EmergencySummaryGenerator:
     
     def _build_system_prompt(self, guidance_type: GuidanceType, is_primary: bool) -> str:
         role_desc = "主报警人" if is_primary else "其他报警人"
-        other_role_desc = "分别对每个报警人进行" if not is_primary else ""
-        base_instruction = f"你是一名专业的消防救援指挥中心接警员，需要根据{role_desc}提供的信息生成{guidance_type.value}接警指引总结。"
+        other_role_desc = "分别对每个报警人进行" if not is_primary else "对报警人本人提供的信息进行"
+        base_instruction = f"你是一名专业的消防救援指挥中心接警信息归纳员，需要根据接警员和{role_desc}提供的对话信息生成{guidance_type.value}接警指引总结。"
 
         extraction_rules = {
             GuidanceType.TRAFFIC_ACCIDENT: (
@@ -65,10 +65,13 @@ class EmergencySummaryGenerator:
             GuidanceType.SUICIDE_ATTEMPT: (
                 "请准确提取：轻生者所在位置（建筑/楼层/阳台）、周边环境（护栏/高度）、轻生者人数、性别、年龄估计、情绪状态、是否有危险动作、可能动机。"
                 "注意措辞要专业、冷静，避免刺激性语言。"
+            ),
+            GuidanceType.SHOPPING_FIRE: (
+                "请准确提取：事发地点、火势（烟雾）情况、被困人数、人员类型（老人/儿童）、伤亡情况、是否有危险物品、周边环境等信息。"
             )
         }
 
-        return base_instruction + extraction_rules.get(guidance_type) + f"请提取关键警情信息，{other_role_desc}结构化总结。"
+        return base_instruction + extraction_rules.get(guidance_type) + f"请提取关键警情信息，{other_role_desc}信息提取，进行一句话总结，需包含小标题（报警人身份+电话）。"
     
 
     def _build_user_message(self, qa_list: List[QA], case_context: Optional[str] = None) -> str:

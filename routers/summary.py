@@ -66,6 +66,7 @@ def determine_guidance_type(guide_type: int) -> GuidanceType:
     mapping = {
         1: GuidanceType.TRAFFIC_ACCIDENT,
         2: GuidanceType.ELEVATOR_ENTRAPMENT,
-        3: GuidanceType.SUICIDE_ATTEMPT
+        3: GuidanceType.SUICIDE_ATTEMPT,
+        4: GuidanceType.SHOPPING_FIRE
     }
     return mapping.get(guide_type, GuidanceType.TRAFFIC_ACCIDENT)
