@@ -2,7 +2,7 @@
 from fastapi import APIRouter, HTTPException
 from typing import Dict, List
 from core.generator import EmergencySummaryGenerator
-from core.models import JavaData, SummaryRequest, SummaryResponse, GuidanceType, QAPair, QA
+from core.models import JavaData, SummaryRequest, SummaryResponse, QAPair, QA
 from config.logging_conf import logger
 
 router = APIRouter(prefix="/summary", tags=["接警总结生成"])
@@ -17,6 +17,10 @@ async def generate_summary(request: JavaData):
     try:
         if not request.allAnswers:
             raise HTTPException(status_code=400, detail="报警记录不能为空")
+        if not request.guideTypeName:
+            raise HTTPException(status_code=400, detail="指引类型不能为空")
+        if not request.prompt:
+            raise HTTPException(status_code=400, detail="提示词不能为空")
 
         # 转换请求
         summary_request = convert_java_data(request)
@@ -33,7 +37,6 @@ async def generate_summary(request: JavaData):
 
 def convert_java_data(java_data: JavaData) -> SummaryRequest:
     """将 Java 数据转换为 SummaryRequest"""
-    guidance_type = determine_guidance_type(java_data.guideType)
 
     # 解析所有报警人数据
     qa_list: List[QA] = []
@@ -55,18 +58,10 @@ def convert_java_data(java_data: JavaData) -> SummaryRequest:
 
     return SummaryRequest(
         case_id=java_data.incidentId,
-        guidance_type=guidance_type,
+        guidance_type=java_data.guideTypeName,
+        prompt=java_data.prompt,
         qa_list=qa_list,
         case_context=None,  # 可选：Java 可额外传 context
         is_primary=is_primary
     )
 
-
-def determine_guidance_type(guide_type: int) -> GuidanceType:
-    mapping = {
-        1: GuidanceType.TRAFFIC_ACCIDENT,
-        2: GuidanceType.ELEVATOR_ENTRAPMENT,
-        3: GuidanceType.SUICIDE_ATTEMPT,
-        4: GuidanceType.SHOPPING_FIRE
-    }
-    return mapping.get(guide_type, GuidanceType.TRAFFIC_ACCIDENT)

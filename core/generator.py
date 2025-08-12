@@ -2,7 +2,7 @@ from openai import OpenAI, AsyncOpenAI # 显式使用新版客户端
 from typing import List, Dict, Optional
 from config.settings import settings
 from config.logging_conf import logger
-from core.models import GuidanceType, SummaryResponse, SummaryRequest, QAPair, QA
+from core.models import  SummaryResponse, SummaryRequest, QAPair, QA
 
 class EmergencySummaryGenerator:
     def __init__(self):
@@ -24,7 +24,8 @@ class EmergencySummaryGenerator:
             # 1. 构建提示词
             system_prompt = self._build_system_prompt(
                 request_data.guidance_type, 
-                request_data.is_primary
+                request_data.is_primary,
+                request_data.prompt
             )
             
             # 2. 构建用户消息：整合所有 QA 数据
@@ -50,28 +51,12 @@ class EmergencySummaryGenerator:
             logger.error(f"生成指引总结失败: {str(e)}", exc_info=True)
             raise
     
-    def _build_system_prompt(self, guidance_type: GuidanceType, is_primary: bool) -> str:
+    def _build_system_prompt(self, guidance_type: str, is_primary: bool,prompt: str) -> str:
         role_desc = "主报警人" if is_primary else "其他报警人"
         other_role_desc = "分别对每个报警人进行" if not is_primary else "对报警人本人提供的信息进行"
-        base_instruction = f"你是一名专业的消防救援指挥中心接警信息归纳员，需要根据接警员和{role_desc}提供的对话信息生成{guidance_type.value}接警指引总结。"
+        base_instruction = f"你是一名专业的消防救援指挥中心接警信息归纳员，需要根据接警员和{role_desc}提供的对话信息生成{guidance_type}接警指引总结。"
 
-        extraction_rules = {
-            GuidanceType.TRAFFIC_ACCIDENT: (
-                "请准确提取：事发地点、车辆类型及数量、伤亡情况、交通状况、是否起火或泄漏等危险因素。"
-            ),
-            GuidanceType.ELEVATOR_ENTRAPMENT: (
-                "请准确提取：具体位置（楼栋/单元）、电梯状态、被困人数、人员类型（老人/儿童）、被困楼层、人员健康状况。"
-            ),
-            GuidanceType.SUICIDE_ATTEMPT: (
-                "请准确提取：轻生者所在位置（建筑/楼层/阳台）、周边环境（护栏/高度）、轻生者人数、性别、年龄估计、情绪状态、是否有危险动作、可能动机。"
-                "注意措辞要专业、冷静，避免刺激性语言。"
-            ),
-            GuidanceType.SHOPPING_FIRE: (
-                "请准确提取：事发地点、火势（烟雾）情况、被困人数、人员类型（老人/儿童）、伤亡情况、是否有危险物品、周边环境等信息。"
-            )
-        }
-
-        return base_instruction + extraction_rules.get(guidance_type) + f"请提取关键警情信息，{other_role_desc}信息提取，进行一句话总结，需包含小标题（报警人身份+电话）。"
+        return base_instruction + prompt + f"请提取关键警情信息，{other_role_desc}信息提取，进行一句话总结，需包含小标题（报警人身份+电话）。"
     
 
     def _build_user_message(self, qa_list: List[QA], case_context: Optional[str] = None) -> str:
