@@ -1,52 +1,56 @@
-import logging
-import logging.config
+from loguru import logger
+import sys
 from pathlib import Path
 from config.settings import settings
 
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
 
-LOGGING_CONFIG = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "standard": {
-            "format": settings.LOG_FORMAT,
-        },
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "standard",
-            "level": settings.LOG_LEVEL,
-        },
-        "file": {
-            "class": "logging.handlers.RotatingFileHandler",
-            "filename": LOG_DIR / "guide-summary.log",
-            "maxBytes": 10485760,  # 10MB
-            "backupCount": 5,
-            "formatter": "standard",
-            "level": settings.LOG_LEVEL,
-        },
-    },
-    "loggers": {
-        "": {  # root logger
-            "handlers": ["console", "file"],
-            "level": settings.LOG_LEVEL,
-            "propagate": True,
-        },
-        "uvicorn.error": {
-            "handlers": ["console", "file"],
-            "level": settings.LOG_LEVEL,
-            "propagate": False,
-        },
-    },
-}
+"""
+loguru的logger是一个全局单例
+在任何一个模块中配置的handler和格式都会影响所有地方导入的logger
+只需要在一个地方（如logging_conf.py）配置一次，所有模块都会生效
+"""
 
-def setup_logging():
-    logging.config.dictConfig(LOGGING_CONFIG)
-    logger = logging.getLogger(__name__)
-    logger.info("日志配置已加载")
-    return logger
+# 移除默认配置
+logger.remove()
 
-logger = setup_logging()
+# 定义loguru格式
+loguru_format = "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+log_format = settings.LOG_FORMAT or loguru_format
+# 添加控制台输出
+logger.add(
+    sys.stdout,
+    format=log_format,  # 使用log_format
+    level=settings.LOG_LEVEL,
+    enqueue=True,
+    colorize=True,
+)
+
+# 添加文件输出
+logger.add(
+    LOG_DIR / "guide-summary.log",
+    rotation="10 MB",
+    retention="30 days",
+    format=log_format,  # 文件日志使用log_format
+    level=settings.LOG_LEVEL,
+    encoding="utf-8",
+    enqueue=True,
+)
+
+# 可选：处理uvicorn日志
+
+# def filter_uvicorn(record):
+#     return "uvicorn" not in record["name"]
+
+
+# logger.add(
+#     LOG_DIR / "app.log",
+#     rotation="10 MB",
+#     retention="30 days",
+#     format=loguru_format,
+#     level=settings.LOG_LEVEL,
+#     encoding="utf-8",
+#     enqueue=True,
+#     filter=filter_uvicorn  # 过滤掉uvicorn的日志
+# )

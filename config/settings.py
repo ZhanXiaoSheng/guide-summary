@@ -1,30 +1,32 @@
-from pydantic_settings import BaseSettings
-from pathlib import Path
-import os
+from decouple import config, Csv
 
-class Settings(BaseSettings):
-    APP_NAME: str = "Guide Summary Generator"
-    API_PREFIX: str = "/api/v1"
-    
+
+class Settings:
+    # 应用配置
+    APP_NAME = config('APP_NAME', default='Guide Summary Generator')
+    API_PREFIX = config('API_PREFIX', default='/api/v1')
+
     # 大模型配置
-    API_KEY: str
-    BASE_URL: str = "https://api.deepseek.com"
-    LLM_MODEL: str = "deepseek-chat"
-    LLM_TEMPERATURE: float = 0.3
-    LLM_MAX_TOKENS: int = 500
-    
-    # 日志配置
-    LOG_LEVEL: str = "INFO"
-    LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    
-    class Config:
-        env_file = ".env"
-        env_file_encoding = 'utf-8'
-        extra = 'forbid'  # 禁止额外字段
+    API_KEY = config('API_KEY', default='')
+    BASE_URL = config('BASE_URL', default='https://api.deepseek.com')
+    LLM_MODEL = config('LLM_MODEL', default='deepseek-chat')
+    LLM_TEMPERATURE = config('LLM_TEMPERATURE', default=0.3, cast=float)
+    LLM_MAX_TOKENS = config('LLM_MAX_TOKENS', default=500, cast=int)
 
-# 添加调试信息
-print(f"当前工作目录: {os.getcwd()}")
-print(f"环境配置目录: {Path('.env').absolute()}")
+    # 日志配置
+    LOG_LEVEL = config('LOG_LEVEL', default='INFO')
+    LOG_FORMAT = config(
+        'LOG_FORMAT', default='{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{line} - {message}')
+
+    # 百度全景图配置
+    PANORAMA_API_URL = config(
+        'PANORAMA_API_URL', default='https://api.map.baidu.com/panorama/v2')
+    PANORAMA_API_KEY = config('PANORAMA_API_KEY', default='')
+
+    # 动态获取任何配置
+    @staticmethod
+    def get(key: str, default=None, cast=None):
+        return config(key, default=default, cast=cast)
+
 
 settings = Settings()
-print(f"加载 API_KEY: {settings.API_KEY}")  # 确认是否加载成功

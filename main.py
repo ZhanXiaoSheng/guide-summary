@@ -1,32 +1,59 @@
-import sys
-from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from config.settings import settings
-from config.logging_conf import logger
-from routers.summary import router as summary_router
+from loguru import logger
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 启动时运行
     logger.info("开始启动指引总结生成器")
     yield
-    # 关闭时运行
     logger.info("关闭指引总结生成器")
 
-app = FastAPI(
-    title=settings.APP_NAME,
-    version="1.0.0",
-    openapi_url=f"{settings.API_PREFIX}/openapi.json",
-    lifespan=lifespan  # 使用新的生命周期处理
-)
 
-app.include_router(summary_router, prefix=settings.API_PREFIX)
+def create_app() -> FastAPI:
 
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
+    app = FastAPI(
+        title=settings.APP_NAME,
+        version="1.0.0",
+        openapi_url=f"{settings.API_PREFIX}/openapi.json",
+        lifespan=lifespan,
+        redirect_slashes=False  # 关闭自动重定向
+    )
+
+    # summary 路由
+    from routers.summary import router as summary_router
+    app.include_router(summary_router, prefix=settings.API_PREFIX)
+
+    # panorama 路由
+    from routers.panorama import router as panorama_router
+    app.include_router(panorama_router, prefix=settings.API_PREFIX)
+
+    # 路由列表
+    @app.get(f"{settings.API_PREFIX}/routes")
+    async def list_all_routes():
+        routes = []
+        for route in app.routes:
+            if hasattr(route, "methods") and hasattr(route, "path"):
+                routes.append({
+                    "path": route.path,
+                    "methods": sorted(list(route.methods)),
+                    "name": getattr(route, "name", "N/A")
+                })
+        return {"routes": routes}
+
+    @app.get("/health")
+    async def health_check():
+        return {"status": "healthy"}
+
+    return app
+
+
+# 供 uvicorn main:app 使用
+app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # logger.info("=== 通过 python main.py 启动 ===")
+    # 用 "main:app" 形式配合 --reload 更稳（热重载子进程也会正确 import）
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

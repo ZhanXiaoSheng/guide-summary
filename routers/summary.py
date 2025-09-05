@@ -3,9 +3,10 @@ from fastapi import APIRouter, HTTPException
 from typing import Dict, List
 from core.generator import EmergencySummaryGenerator
 from core.models import JavaData, SummaryRequest, SummaryResponse, QAPair, QA
-from config.logging_conf import logger
+from loguru import logger
 
 router = APIRouter(prefix="/summary", tags=["接警总结生成"])
+
 
 @router.post("/generate", response_model=SummaryResponse)
 async def generate_summary(request: JavaData):
@@ -41,20 +42,21 @@ def convert_java_data(java_data: JavaData) -> SummaryRequest:
     # 解析所有报警人数据
     qa_list: List[QA] = []
     for caller_id, answer_map in java_data.allAnswers.items():
-        qa_pairs = [QAPair(question=q, answer=a) for q, a in answer_map.items()]
+        qa_pairs = [QAPair(question=q, answer=a)
+                    for q, a in answer_map.items()]
         qa_list.append(QA(caller_id=caller_id, qa_pairs=qa_pairs))
 
     # 判断是生成主报警人总结，还是合并总结
-    is_primary = False
-    if java_data.summaryType == 2:
-        # 仅主报警人：但 Java 应确保 allAnswers 中第一个或标记者是主报警人
-        # 这里我们假设 Java 已按顺序传入，或 caller_id 可识别，但为简化，我们仍传全部，由 prompt 控制 focus
-        is_primary = True
-    elif java_data.summaryType == 1:
-        # 合并所有报警人
-        is_primary = False
-    else:
-        raise ValueError("summaryType 必须为 1（合并）或 2（主报警人）")
+    # is_primary = False
+    # if java_data.summaryType == 2:
+    #     # 仅主报警人：但 Java 应确保 allAnswers 中第一个或标记者是主报警人
+    #     # 这里我们假设 Java 已按顺序传入，或 caller_id 可识别，但为简化，我们仍传全部，由 prompt 控制 focus
+    #     is_primary = True
+    # elif java_data.summaryType == 1:
+    #     # 合并所有报警人
+    #     is_primary = False
+    # else:
+    #     raise ValueError("summaryType 必须为 1（合并）或 2（主报警人）")
 
     return SummaryRequest(
         case_id=java_data.incidentId,
@@ -62,6 +64,5 @@ def convert_java_data(java_data: JavaData) -> SummaryRequest:
         prompt=java_data.prompt,
         qa_list=qa_list,
         case_context=None,  # 可选：Java 可额外传 context
-        is_primary=is_primary
+        summary_type=java_data.summaryType
     )
-
