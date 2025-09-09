@@ -45,6 +45,7 @@ BAIDU_MAP_DOMAINS = {
     "apisv0.bdimg.com",
     "apisv2.bdimg.com",
     "apisv3.bdimg.com",
+    "map.baidu.com"
 }
 
 
@@ -92,19 +93,42 @@ async def proxy_baidu_resources(path: str, request: Request):
                 follow_redirects=True
             )
 
+            # 确保 content 被读取
+            content = resp.content  # 触发下载
+
+            if not content:
+                logger.warning(f"从 {target_url} 获取到空内容")
+                return Response(
+                    content="console.error('Empty response from upstream')",
+                    status_code=502,
+                    media_type="application/javascript"
+                )
+
             # 删除 Content-Length，让 FastAPI 自动计算
             headers_to_send = {
                 key: value for key, value in resp.headers.items()
-                if key.lower() not in ["content-length", "connection", "transfer-encoding"]
+                if key.lower() not in ["content-length", "connection", "transfer-encoding", "content-encoding"]
             }
 
+            # 显式指定 media_type
+            media_type = resp.headers.get(
+                "content-type", "application/javascript")
+
             return Response(
-                content=resp.content,
+                content=content,
                 status_code=resp.status_code,
                 headers=headers_to_send,
-                media_type=resp.headers.get(
-                    "content-type", "application/javascript")
+                media_type=media_type
             )
+        except httpx.TimeoutException:
+            logger.error(f"请求超时: {target_url}")
+            return Response(content="console.error('Request timeout')", status_code=504, media_type="application/javascript")
+        except httpx.RequestError as e:
+            logger.error(f"请求失败 {target_url}: {e}")
+            return Response(content="console.error('Request failed')", status_code=502, media_type="application/javascript")
+        except Exception as e:
+            logger.error(f"代理失败 {target_url}: {e}", exc_info=True)
+            return Response(content="console.error('Proxy internal error')", status_code=500, media_type="application/javascript")
 
         except Exception as e:
             logger.error(f"代理失败 {target_url}: {e}")

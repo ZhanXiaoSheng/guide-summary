@@ -9,8 +9,8 @@ echo.
 echo === 正在停止指引总结 API 服务 ===
 echo.
 
-set PROJECT_DIR=D:\guide-summary
-cd /d "%PROJECT_DIR%"
+:: 直接切换到脚本所在目录
+cd /d "%~dp0"
 
 :: 查找并结束 python main.py 进程
 tasklist | findstr /i "python.*main.py" >nul

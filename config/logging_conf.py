@@ -27,16 +27,29 @@ logger.add(
     colorize=True,
 )
 
-# 添加文件输出
-logger.add(
-    LOG_DIR / "guide-summary.log",
-    rotation="10 MB",
-    retention="30 days",
-    format=log_format,  # 文件日志使用log_format
-    level=settings.LOG_LEVEL,
-    encoding="utf-8",
-    enqueue=True,
-)
+# 添加文件输出 - 使用延迟初始化避免启动错误
+
+
+def setup_file_logging():
+    try:
+        logger.add(
+            LOG_DIR / "guide-summary.log",
+            rotation="10 MB",
+            retention="30 days",
+            format=log_format,
+            level=settings.LOG_LEVEL,
+            encoding="utf-8",
+            enqueue=True,
+            catch=True,
+        )
+        logger.info("文件日志初始化成功")
+    except Exception as e:
+        logger.error(f"文件日志初始化失败: {e}")
+        # 回退到只有控制台输出
+
+
+# 在应用启动后调用
+setup_file_logging()
 
 # 可选：处理uvicorn日志
 

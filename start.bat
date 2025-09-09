@@ -5,12 +5,15 @@ chcp 65001 >nul
 :: 支持：首次自动创建环境 + 二次启动跳过安装 + 强制重装 (-r)
 :: =====================================================
 
+:: 设置窗口标题（中英文）
+title 指引总结API服务
+
 echo.
 echo === 指引总结 API 服务启动中 ===
 echo.
 
-set PROJECT_DIR=D:\guide-summary
-cd /d "%PROJECT_DIR%"
+:: 切换到脚本所在目录
+cd /d "%~dp0"
 
 :: 检查是否已激活虚拟环境
 if defined VIRTUAL_ENV (
@@ -73,7 +76,7 @@ if errorlevel 1 (
 :: 启动服务
 echo.
 echo 🚀 正在启动 FastAPI 服务...
-echo    访问 http://localhost:8000/api/v1/docs 查看 API 文档
+echo    访问 http://localhost:8000/api/v1/routes 查看 API 路由
 echo    按 Ctrl+C 停止服务
 echo.
 
