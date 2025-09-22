@@ -43,3 +43,14 @@ class SummaryResponse(BaseModel):
     case_id: str
     summary: str
     guidance_type: str
+
+
+class IncrementalSummaryRequest(BaseModel):
+    """增量总结请求数据"""
+    case_id: str
+    question: str
+    caller_id: Optional[str] = "main_caller"  # 可选，用于区分报警人，但输出始终只一个
+    answer: str
+    current_summary: Optional[str] = None  # 上一轮的完整总结（JSON字符串）
+    guidance_type: str  # 保留，用于保持一致性
+    prompt: str  # 用户自定义提示词（如提取被困、身份等）

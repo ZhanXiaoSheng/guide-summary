@@ -177,3 +177,96 @@ class EmergencySummaryGenerator:
         except Exception as e:
             logger.error(f"大模型API调用失败: {str(e)}")
             raise
+
+    # 增量式总结 当前报警人
+    # summary_type=2 格式
+
+    async def generate_incremental_summary(
+        self,
+        request_data: SummaryRequest
+    ) -> SummaryResponse:
+        """生成增量式接警指引总结（summary_type=2 格式）"""
+        try:
+            # 1. 构建系统提示词（专为增量设计）
+            system_prompt = self._build_incremental_system_prompt(
+                request_data.guidance_type,
+                request_data.prompt
+            )
+
+            # 2. 构建用户消息：历史摘要 + 新问答
+            user_message = self._build_incremental_user_message(
+                request_data.case_context,  # 历史摘要
+                request_data.qa_list[0]    # 当前问答（只有一个）
+            )
+
+            # 3. 调用大模型
+            logger.debug(f"增量生成总结, 案件ID={request_data.case_id}")
+            logger.debug(f"系统提示词: {system_prompt}")
+            logger.debug(f"用户消息: {user_message}")
+
+            response_text = await self._call_llm(system_prompt, user_message)
+
+            # 4. 返回响应
+            return SummaryResponse(
+                case_id=request_data.case_id,
+                summary=response_text,
+                guidance_type=request_data.guidance_type
+            )
+
+        except Exception as e:
+            logger.error(f"增量生成指引总结失败: {str(e)}", exc_info=True)
+            raise
+
+    def _build_incremental_system_prompt(self, guidance_type: str, prompt: str) -> str:
+        """构建增量更新专用系统提示词"""
+        return f"""
+    你是一个专业的消防救援接警信息归纳助手。现在需要你基于“已有报警人摘要”和“新增问答”，生成更新后的该报警人完整摘要。
+    请严格遵守以下规则：
+
+    - 输出格式必须与示例完全一致：一个 callers 数组，内含一个对象，包含 identity、phone、summary、isTrapped 四个字段
+    - total_info 必须是“（共1人报警，[具体身份]）”格式，身份需根据最新信息更新
+    - 如果历史摘要为空，你需从问答中根据用户自定义要求提取所有字段构建初始摘要
+    - 如果历史摘要存在：
+      - 保留未被新问答覆盖的字段（如已知电话，新问答没提，则保留）
+      - 用新问答信息更新对应字段（如新问答提到新电话，则替换；提到“我被困”，则 isTrapped=true）
+      - summary 字段需融合历史和新信息，生成一句更完整的话（不要分句、不要列表）
+    - isTrapped 判断规则：
+      - 若新增问答中报警人明确表示自己被困（如“我出不去了”、“我被困在阳台”），则为 true
+      - 若说“别人被困”或未提及，则保持原值或设为 false
+    - 输出必须是合法 JSON，无任何额外文本、分析、Markdown 包装
+    
+    用户自定义要求：{prompt}
+
+    输出格式示例：
+    {{
+        "total_info": "（共1人报警，住户）",
+        "callers": [
+            {{
+                "identity": "住户",
+                "phone": "13800138000",
+                "summary": "厨房起火，本人被困阳台，已通知物业",
+                "isTrapped": true
+            }}
+        ]
+    }}
+        """.strip()
+
+    def _build_incremental_user_message(self, current_summary: Optional[str], new_qa: QA) -> str:
+        """构建增量用户消息"""
+        lines = []
+
+        if current_summary:
+            lines.append("【当前报警人已有摘要（JSON格式）】")
+            lines.append(current_summary)
+            lines.append("")
+        else:
+            lines.append("【尚无历史摘要，此为首次生成该报警人摘要】")
+            lines.append("")
+
+        lines.append("【新增问答内容】")
+        for pair in new_qa.qa_pairs:
+            lines.append(f"\n--- 报警人({new_qa.caller_id}) 提供的信息 ---")
+            lines.append(f"Q: {pair.question}")
+            lines.append(f"A: {pair.answer}")
+
+        return "\n".join(lines)

@@ -34,7 +34,7 @@ def setup_file_logging():
     try:
         logger.add(
             LOG_DIR / "guide-summary.log",
-            rotation="10 MB",
+            rotation="1 MB",
             retention="30 days",
             format=log_format,
             level=settings.LOG_LEVEL,

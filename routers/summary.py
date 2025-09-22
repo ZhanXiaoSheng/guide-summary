@@ -2,7 +2,7 @@
 from fastapi import APIRouter, HTTPException
 from typing import Dict, List
 from core.generator import EmergencySummaryGenerator
-from core.models import JavaData, SummaryRequest, SummaryResponse, QAPair, QA
+from core.models import JavaData, SummaryRequest, SummaryResponse, QAPair, QA, IncrementalSummaryRequest
 from loguru import logger
 
 router = APIRouter(prefix="/summary", tags=["接警总结生成"])
@@ -33,6 +33,45 @@ async def generate_summary(request: JavaData):
 
     except Exception as e:
         logger.error(f"生成总结失败: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
+
+
+@router.post("/generate_incremental", response_model=SummaryResponse)
+async def generate_incremental_summary(request: IncrementalSummaryRequest):
+    """
+    增量式生成单报警人总结（summary_type=2 格式）
+    - 每次传入一个问答对 + 当前历史总结
+    - 返回更新后的完整总结（JSON格式）
+    """
+    try:
+        # 可选：校验参数
+        if not request.question or not request.answer:
+            raise HTTPException(status_code=400, detail="问题或回答不能为空")
+
+        generator = EmergencySummaryGenerator()
+
+        # 构建单个报警人的 QA 数据
+        qa_pair = QAPair(question=request.question, answer=request.answer)
+        qa_item = QA(
+            caller_id=request.caller_id,  # 可自定义或传入
+            qa_pairs=[qa_pair]
+        )
+
+        summary_request = SummaryRequest(
+            case_id=request.case_id,
+            guidance_type=request.guidance_type,
+            prompt=request.prompt,
+            summary_type=2,  # 使用单人格式
+            qa_list=[qa_item],
+            case_context=request.current_summary  # 把历史摘要作为上下文传入
+        )
+
+        # 生成增量总结
+        response = await generator.generate_incremental_summary(summary_request)
+        return response
+
+    except Exception as e:
+        logger.error(f"增量生成总结失败: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
 
